@@ -2,60 +2,50 @@
  *
  * Calculate the extents of desired fields
  * Returns an object like:
- * `{x: [0, 10], y: [-10, 10]}` if `fields` is
- * `[{field:'x', accessor: d => d.x}, {field:'y', accessor: d => d.y}]`
+ * `{ x: [0, 10], y: [-10, 10] }` if `fields` is
+ * `{'x': d => d.x, 'y': d => d.y}`
  *
  * --------------------------------------------
  */
-export default function calcExtents (data, fields) {
-	if (!Array.isArray(data) || data.length === 0) return null;
-	const extents = {};
-	const fl = fields.length;
-	let i;
-	let j;
-	let f;
-	let val;
-	let s;
+import minMax from '../utils/minMax.js';
 
-	if (fl) {
-		for (i = 0; i < fl; i += 1) {
-			const firstRow = fields[i].accessor(data[0]);
-			if (firstRow === undefined || firstRow === null || Number.isNaN(firstRow) === true) {
-				extents[fields[i].field] = [Infinity, -Infinity];
-			} else {
-				extents[fields[i].field] = Array.isArray(firstRow) ? firstRow : [firstRow, firstRow];
-			}
-		}
-		const dl = data.length;
-		for (i = 0; i < dl; i += 1) {
-			for (j = 0; j < fl; j += 1) {
-				f = fields[j];
-				val = f.accessor(data[i]);
-				s = f.field;
-				if (Array.isArray(val)) {
-					const vl = val.length;
-					for (let k = 0; k < vl; k += 1) {
-						if (val[k] !== undefined && val[k] !== null && Number.isNaN(val[k]) === false) {
-							if (val[k] < extents[s][0]) {
-								extents[s][0] = val[k];
-							}
-							if (val[k] > extents[s][1]) {
-								extents[s][1] = val[k];
-							}
-						}
-					}
-				} else if (val !== undefined && val !== null && Number.isNaN(val) === false) {
-					if (val < extents[s][0]) {
-						extents[s][0] = val;
-					}
-					if (val > extents[s][1]) {
-						extents[s][1] = val;
-					}
-				}
-			}
-		}
-	} else {
-		return null;
+const min = minMax('min');
+const max = minMax('max');
+
+export default function calcExtents (data, fields) {
+	if (!Array.isArray(data)) {
+		throw new TypeError('The first argument of calcExtents() must be an array.');
 	}
+
+	if (
+		Array.isArray(fields)
+		|| fields === undefined
+		|| fields === null
+	) {
+		throw new TypeError('The second argument of calcExtents() must be an '
+		+ 'object with field names as keys as accessor functions as values.');
+	}
+
+	const extents = {};
+
+	const dl = data.length;
+	const fls = Object.keys(fields);
+	const fl = fls.length;
+	for (let i = 0; i < fl; i += 1) {
+		const s = fls[i];
+		const accessor = fields[s];
+		extents[s] = [null, null];
+		for (let j = 0; j < dl; j += 1) {
+			const val = accessor(data[j]);
+			if (Array.isArray(val)) {
+				extents[s][0] = min([extents[s][0], min(val)]);
+				extents[s][1] = max([extents[s][1], max(val)]);
+			} else {
+				extents[s][0] = min([extents[s][0], val]);
+				extents[s][1] = max([extents[s][1], val]);
+			}
+		}
+	}
+
 	return extents;
 }
